@@ -2,8 +2,8 @@ package org.firstinspires.ftc.teamcode;
 
 import androidx.annotation.NonNull;
 
-import com.acmerobotics.dashboard.canvas.Canvas;
-import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.canvas.Canvas; // field drawing area
+import com.acmerobotics.dashboard.config.Config; // variables editable live
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.acmerobotics.roadrunner.*;
 import com.acmerobotics.roadrunner.AngularVelConstraint;
@@ -54,26 +54,39 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+/* Pose: the robot's position and orientation: x, y (in inches on the field) and
+heading (which way it faces, in radians). Almost everything in this file is about pose.
+Encoder: a sensor on a motor that counts how far it has spun. Each count is a tick.
+Ticks are meaningless to humans, so the code converts them to inches (inPerTick).
+IMU: a gyroscope chip in the Control Hub that measures rotation. It's the best source of heading.
+Odometry: estimating position by adding up small movements over time,
+like counting your steps to figure out how far you've walked. It drifts a little as errors accumulate.
+Motor power: a number from -1.0 to 1.0. That's all you can tell a motor. */
+
 @Config
 public final class MecanumDrive {
     public static class Params {
         // IMU orientation
         // TODO: fill in these values based on
         //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
+       // gyro doesnt know how it is mounted so you tell it which way the rec logo and usb port face
+
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
                 RevHubOrientationOnRobot.LogoFacingDirection.UP;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
                 RevHubOrientationOnRobot.UsbFacingDirection.RIGHT;
 
         // drive model parameters
-        public double inPerTick = 0.002311804652506863171;
+        public double inPerTick = 0.002311804652506863171; //how many inches the robot travels per single encoder tick.
         //0.0022873974332001
-        public double lateralInPerTick = 0.0016226153594712015;
+        public double lateralInPerTick = 0.0016226153594712015; //  Mechanum wheels slip sideways when strafing. This multiplier scales encoder ticks into actual inches when strafing.
         //0.0015121741040969748
-        public double trackWidthTicks = 7466.468163002287;
+        public double trackWidthTicks = 7466.468163002287; // The effective distance between the left and right wheels, measured in encoder ticks.
         //7483.729374109403
 
         // feedforward parameters (in tick units)
+        // kS is the burst of electricity needed just to break static friction and start rolling.
+        // kV is the steady voltage needed to keep cruising at a constant speed.
         public double kS = 1.1806562919956192;
         //1.1934203836096997
         public double kV = 0.0003849776954178278;
@@ -83,31 +96,28 @@ public final class MecanumDrive {
         //0.00012
 
         // path profile parameters (in inches)
-        public double maxWheelVel = 50;
-        public double minProfileAccel = -20;
-        public double maxProfileAccel = 50;
+        public double maxWheelVel = 50;        // max wheel speed in inches/sec
+        public double minProfileAccel = -20;   // max braking (negative acceleration)
+        public double maxProfileAccel = 50;    // max speed-up
 
         // turn profile parameters (in radians)
         public double maxAngVel = Math.PI; // shared with path
         public double maxAngAccel = Math.PI;
 
         // path controller gains
-
-        public double axialGain = 3.4;
-        //3.5
-        public double lateralGain = 1.575;
-        //1.575
-        public double headingGain = 0.75; // shared with turn
-        //0.78
-
-        public double axialVelGain = 0.3;
-        //0.3
-        public double lateralVelGain = 0.0;
-        public double headingVelGain = 0.0; // shared with turn
+//The Gain parameters (axial, lateral, heading) are PID constants
+// used by the Holonomic Controller to correct the robot's positioning in real-time if it drifts off its intended path.
+        public double axialGain = 3.4;         // correct forward/back error
+        public double lateralGain = 1.575;     // correct sideways error
+        public double headingGain = 0.75;      // correct rotation error
+        public double axialVelGain = 0.3;      // correct forward speed error
+        public double lateralVelGain = 0.0;    // (0 = don't correct sideways speed error)
+        public double headingVelGain = 0.0;    // (0 = don't correct rotation speed error)
     }
 
-    public static Params PARAMS = new Params();
-
+    public static Params PARAMS = new Params(); // one shared set of parameters. reads val anywhere in file
+//This converts target robot movements (e.g., "move forward 10 inches and strafe right 2 inches")
+// into individual target speeds for your four separate wheels.
     public final MecanumKinematics kinematics = new MecanumKinematics(
             PARAMS.inPerTick * PARAMS.trackWidthTicks, PARAMS.inPerTick / PARAMS.lateralInPerTick);
 
@@ -500,21 +510,20 @@ public final class MecanumDrive {
             c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
         }
     }
-
     public PoseVelocity2d updatePoseEstimate() {
+        // asks localizer to update and return robots velocity
         PoseVelocity2d vel = localizer.update();
+        // adds current pose to list then drops oldest entries so 100 remain
         poseHistory.add(localizer.getPose());
 
         while (poseHistory.size() > 100) {
             poseHistory.removeFirst();
         }
-
+        // logs pose and returns velocity
         estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
-
-
         return vel;
     }
-
+    // essentially just draws a line through the points from the method above
     private void drawPoseHistory(Canvas c) {
         double[] xPoints = new double[poseHistory.size()];
         double[] yPoints = new double[poseHistory.size()];
