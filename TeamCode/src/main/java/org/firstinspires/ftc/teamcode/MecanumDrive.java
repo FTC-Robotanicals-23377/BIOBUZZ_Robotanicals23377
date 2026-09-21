@@ -523,6 +523,7 @@ public final class MecanumDrive {
         estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
         return vel;
     }
+    // canvas = drawing layer on top of field picture
     // essentially just draws a line through the points from the method above
     private void drawPoseHistory(Canvas c) {
         double[] xPoints = new double[poseHistory.size()];
