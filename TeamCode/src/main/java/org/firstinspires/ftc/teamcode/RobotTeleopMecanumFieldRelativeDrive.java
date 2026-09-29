@@ -31,6 +31,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -52,20 +53,20 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class
 RobotTeleopMecanumFieldRelativeDrive extends OpMode {
     // This declares the four motors needed
-    DcMotor frontLeftDrive;
-    DcMotor frontRightDrive;
-    DcMotor backLeftDrive;
-    DcMotor backRightDrive;
+    DcMotorEx frontLeftDrive;
+    DcMotorEx frontRightDrive;
+    DcMotorEx backLeftDrive;
+    DcMotorEx backRightDrive;
 
     // This declares the IMU needed to get the current direction the robot is facing
     IMU imu;
 
     @Override
     public void init() {
-        frontLeftDrive = hardwareMap.get(DcMotor.class, "front_left_drive");
-        frontRightDrive = hardwareMap.get(DcMotor.class, "front_right_drive");
-        backLeftDrive = hardwareMap.get(DcMotor.class, "back_left_drive");
-        backRightDrive = hardwareMap.get(DcMotor.class, "back_right_drive");
+        frontLeftDrive = hardwareMap.get(DcMotorEx.class, "front_left_drive");
+        frontRightDrive = hardwareMap.get(DcMotorEx.class, "front_right_drive");
+        backLeftDrive = hardwareMap.get(DcMotorEx.class, "back_left_drive");
+        backRightDrive = hardwareMap.get(DcMotorEx.class, "back_right_drive");
 
         // We set the left motors in reverse which is needed for drive trains where the left
         // motors are opposite to the right ones.
@@ -115,6 +116,36 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         }
         telemetry.addLine("This is the value of y: " +Float.toString(gamepad1.left_stick_y));
         telemetry.addLine("This is the value of x: " +Float.toString(gamepad1.left_stick_x));
+        if((-0.9 >= gamepad1.left_stick_y) && (gamepad1.left_stick_y >=-1)){
+            frontLeftDrive.setVelocity(500);
+            frontRightDrive.setVelocity(200);
+            backRightDrive.setVelocity(200);
+            backLeftDrive.setVelocity(500);
+      }
+        if((0.9 <= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 1)){
+            frontLeftDrive.setVelocity(-500);
+            frontRightDrive.setVelocity(-200);
+            backLeftDrive.setVelocity(-500);
+            backRightDrive.setVelocity(-200);
+        }
+        if((-0.9 >= gamepad1.left_stick_x) && (gamepad1.left_stick_x >=-1)){
+            frontLeftDrive.setVelocity(500);
+            frontRightDrive.setVelocity(-200);
+            backRightDrive.setVelocity(200);
+            backLeftDrive.setVelocity(-500);
+        }
+        if((0.9 <= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 1)){
+            frontLeftDrive.setVelocity(-500);
+            frontRightDrive.setVelocity(200);
+            backLeftDrive.setVelocity(500);
+            backRightDrive.setVelocity(-200);
+        }
+        if((-0.2<= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 0.2) && (-0.2<= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 0.2)){
+            frontLeftDrive.setVelocity(0);
+            frontRightDrive.setVelocity(0);
+            backLeftDrive.setVelocity(0);
+            backRightDrive.setVelocity(0);
+        }
     }
 
     // This routine drives the robot field relative
