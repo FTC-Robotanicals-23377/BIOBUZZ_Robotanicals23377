@@ -117,28 +117,28 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         telemetry.addLine("This is the value of y: " +Float.toString(gamepad1.left_stick_y));
         telemetry.addLine("This is the value of x: " +Float.toString(gamepad1.left_stick_x));
         if((-0.9 >= gamepad1.left_stick_y) && (gamepad1.left_stick_y >=-1)){
-            frontLeftDrive.setVelocity(500);
-            frontRightDrive.setVelocity(200);
-            backRightDrive.setVelocity(200);
-            backLeftDrive.setVelocity(500);
+            frontLeftDrive.setVelocity(400);
+            frontRightDrive.setVelocity(400);
+            backRightDrive.setVelocity(400);
+            backLeftDrive.setVelocity(400);
       }
         if((0.9 <= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 1)){
-            frontLeftDrive.setVelocity(-500);
-            frontRightDrive.setVelocity(-200);
-            backLeftDrive.setVelocity(-500);
-            backRightDrive.setVelocity(-200);
+            frontLeftDrive.setVelocity(-400);
+            frontRightDrive.setVelocity(-400);
+            backLeftDrive.setVelocity(-400);
+            backRightDrive.setVelocity(-400);
         }
         if((-0.9 >= gamepad1.left_stick_x) && (gamepad1.left_stick_x >=-1)){
-            frontLeftDrive.setVelocity(500);
-            frontRightDrive.setVelocity(-200);
-            backRightDrive.setVelocity(200);
-            backLeftDrive.setVelocity(-500);
+            frontLeftDrive.setVelocity(400);
+            frontRightDrive.setVelocity(400);
+            backRightDrive.setVelocity(-400);
+            backLeftDrive.setVelocity(-400);
         }
         if((0.9 <= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 1)){
-            frontLeftDrive.setVelocity(-500);
-            frontRightDrive.setVelocity(200);
-            backLeftDrive.setVelocity(500);
-            backRightDrive.setVelocity(-200);
+            frontLeftDrive.setVelocity(-400);
+            frontRightDrive.setVelocity(-400);
+            backLeftDrive.setVelocity(400);
+            backRightDrive.setVelocity(400);
         }
         if((-0.2<= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 0.2) && (-0.2<= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 0.2)){
             frontLeftDrive.setVelocity(0);
