@@ -26,13 +26,18 @@ package org.firstinspires.ftc.teamcode;/* Copyright (c) 2025 FIRST. All rights r
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import static android.graphics.Color.red;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoController;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 /*
@@ -58,6 +63,9 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
     DcMotorEx backLeftDrive;
     DcMotorEx backRightDrive;
 
+    Servo launcherServo;
+
+    ColorSensor colorsensor;
     // This declares the IMU needed to get the current direction the robot is facing
     IMU imu;
 
@@ -67,6 +75,10 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         frontRightDrive = hardwareMap.get(DcMotorEx.class, "front_right_drive");
         backLeftDrive = hardwareMap.get(DcMotorEx.class, "back_left_drive");
         backRightDrive = hardwareMap.get(DcMotorEx.class, "back_right_drive");
+
+        launcherServo = hardwareMap.get(Servo.class, "launcher_servo");
+        launcherServo.setDirection(Servo.Direction.FORWARD);
+        colorsensor = hardwareMap.get(ColorSensor.class, "color_sensor");
 
         // We set the left motors in reverse which is needed for drive trains where the left
         // motors are opposite to the right ones.
@@ -98,6 +110,10 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         telemetry.addLine("Hold left bumper to drive in robot relative");
         telemetry.addLine("The left joystick sets the robot direction");
         telemetry.addLine("Moving the right joystick left and right turns the robot");
+        telemetry.addLine("The red value is " + colorsensor.red() );
+        telemetry.addLine("The green value is " + colorsensor.green() );
+        telemetry.addLine("The blue value is" + colorsensor.blue() );
+        telemetry.addLine("The alpha value is"+ colorsensor.alpha());
 
         // If you press the A button, then you reset the Yaw to be zero from the way
         // the robot is currently pointing
@@ -113,6 +129,14 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
 //        }
         if(gamepad1.a) {
             telemetry.addLine("A is being pressed");
+        }
+        if(gamepad1.x){
+            telemetry.addLine(Double.toString(launcherServo.getPosition()));
+            if(launcherServo.getPosition() == 0){
+                launcherServo.setPosition(1);
+            } else if (launcherServo.getPosition()== 1){
+                launcherServo.setPosition(0);
+            }
         }
         telemetry.addLine("This is the value of y: " +Float.toString(gamepad1.left_stick_y));
         telemetry.addLine("This is the value of x: " +Float.toString(gamepad1.left_stick_x));
