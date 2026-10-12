@@ -38,6 +38,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoController;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 /*
@@ -61,7 +62,9 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
     DcMotorEx frontLeftDrive;
     DcMotorEx frontRightDrive;
     DcMotorEx backLeftDrive;
-    DcMotorEx backRightDrive;
+//    DcMotorEx backRightDrive;
+    private DcMotor rightMotor;
+
 
     Servo launcherServo;
 
@@ -74,11 +77,13 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         frontLeftDrive = hardwareMap.get(DcMotorEx.class, "front_left_drive");
         frontRightDrive = hardwareMap.get(DcMotorEx.class, "front_right_drive");
         backLeftDrive = hardwareMap.get(DcMotorEx.class, "back_left_drive");
-        backRightDrive = hardwareMap.get(DcMotorEx.class, "back_right_drive");
+//        backRightDrive = hardwareMap.get(DcMotorEx.class, "back_right_drive");
 
         launcherServo = hardwareMap.get(Servo.class, "launcher_servo");
         launcherServo.setDirection(Servo.Direction.FORWARD);
+        launcherServo.setPosition(0);
         colorsensor = hardwareMap.get(ColorSensor.class, "color_sensor");
+        rightMotor = hardwareMap.get(DcMotor.class, "right_drive");
 
         // We set the left motors in reverse which is needed for drive trains where the left
         // motors are opposite to the right ones.
@@ -90,7 +95,7 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         frontLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        backRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         imu = hardwareMap.get(IMU.class, "imu");
         // This needs to be changed to match the orientation on your robot
@@ -110,10 +115,10 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         telemetry.addLine("Hold left bumper to drive in robot relative");
         telemetry.addLine("The left joystick sets the robot direction");
         telemetry.addLine("Moving the right joystick left and right turns the robot");
-        telemetry.addLine("The red value is " + colorsensor.red() );
-        telemetry.addLine("The green value is " + colorsensor.green() );
-        telemetry.addLine("The blue value is" + colorsensor.blue() );
-        telemetry.addLine("The alpha value is"+ colorsensor.alpha());
+        telemetry.addLine("The red value is " + colorsensor.red());
+        telemetry.addLine("The green value is " + colorsensor.green());
+        telemetry.addLine("The blue value is" + colorsensor.blue());
+        telemetry.addLine("The alpha value is" + colorsensor.alpha());
 
         // If you press the A button, then you reset the Yaw to be zero from the way
         // the robot is currently pointing
@@ -127,49 +132,59 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
 //        } else {
 //            driveFieldRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
 //        }
-        if(gamepad1.a) {
+        if (gamepad1.a) {
             telemetry.addLine("A is being pressed");
         }
-        if(gamepad1.x){
+        if (gamepad1.x) {
             telemetry.addLine(Double.toString(launcherServo.getPosition()));
-            if(launcherServo.getPosition() == 0){
-                launcherServo.setPosition(1);
-            } else if (launcherServo.getPosition()== 1){
+            if (launcherServo.getPosition() == 0) {
+                launcherServo.setPosition(.2);
+            } else if ((0.19 <= launcherServo.getPosition()) && (launcherServo.getPosition()) <= .21) {
                 launcherServo.setPosition(0);
             }
         }
-        telemetry.addLine("This is the value of y: " +Float.toString(gamepad1.left_stick_y));
-        telemetry.addLine("This is the value of x: " +Float.toString(gamepad1.left_stick_x));
-        if((-0.9 >= gamepad1.left_stick_y) && (gamepad1.left_stick_y >=-1)){
-            frontLeftDrive.setVelocity(400);
-            frontRightDrive.setVelocity(400);
-            backRightDrive.setVelocity(400);
-            backLeftDrive.setVelocity(400);
-      }
-        if((0.9 <= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 1)){
-            frontLeftDrive.setVelocity(-400);
-            frontRightDrive.setVelocity(-400);
-            backLeftDrive.setVelocity(-400);
-            backRightDrive.setVelocity(-400);
+//        telemetry.addLine("This is the value of y: " + Float.toString(gamepad1.left_stick_y));
+//        telemetry.addLine("This is the value of x: " + Float.toString(gamepad1.left_stick_x));
+//        if ((-0.9 >= gamepad1.left_stick_y) && (gamepad1.left_stick_y >= -1)) {
+//            frontLeftDrive.setVelocity(400);
+//            frontRightDrive.setVelocity(400);
+////            backRightDrive.setVelocity(400);
+//            backLeftDrive.setVelocity(400);
+//        }
+//        if ((0.9 <= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 1)) {
+//            frontLeftDrive.setVelocity(-400);
+//            frontRightDrive.setVelocity(-400);
+//            backLeftDrive.setVelocity(-400);
+////            backRightDrive.setVelocity(-400);
+//        }
+//        if ((-0.9 >= gamepad1.left_stick_x) && (gamepad1.left_stick_x >= -1)) {
+//            frontLeftDrive.setVelocity(400);
+//            frontRightDrive.setVelocity(400);
+////            backRightDrive.setVelocity(-400);
+//            backLeftDrive.setVelocity(-400);
+//        }
+//        if ((0.9 <= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 1)) {
+//            frontLeftDrive.setVelocity(-400);
+//            frontRightDrive.setVelocity(-400);
+//            backLeftDrive.setVelocity(400);
+////            backRightDrive.setVelocity(400);
+//        }
+//        if ((-0.2 <= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 0.2) && (-0.2 <= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 0.2)) {
+//            frontLeftDrive.setVelocity(0);
+//            frontRightDrive.setVelocity(0);
+//            backLeftDrive.setVelocity(0);
+////            backRightDrive.setVelocity(0);
+//        }
+//        telemetry.addData("Status", "Initialized! Ready to drive.");
+//        telemetry.update();
+
+        if(gamepad1.y) {
+            rightMotor.setPower(-0.7);
         }
-        if((-0.9 >= gamepad1.left_stick_x) && (gamepad1.left_stick_x >=-1)){
-            frontLeftDrive.setVelocity(400);
-            frontRightDrive.setVelocity(400);
-            backRightDrive.setVelocity(-400);
-            backLeftDrive.setVelocity(-400);
+        if(gamepad1.right_bumper){
+            rightMotor.setPower(0.0);
         }
-        if((0.9 <= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 1)){
-            frontLeftDrive.setVelocity(-400);
-            frontRightDrive.setVelocity(-400);
-            backLeftDrive.setVelocity(400);
-            backRightDrive.setVelocity(400);
-        }
-        if((-0.2<= gamepad1.left_stick_y) && (gamepad1.left_stick_y <= 0.2) && (-0.2<= gamepad1.left_stick_x) && (gamepad1.left_stick_x <= 0.2)){
-            frontLeftDrive.setVelocity(0);
-            frontRightDrive.setVelocity(0);
-            backLeftDrive.setVelocity(0);
-            backRightDrive.setVelocity(0);
-        }
+
     }
 
     // This routine drives the robot field relative
@@ -196,7 +211,7 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         // strafe right, and rotate
         double frontLeftPower = forward + right + rotate;
         double frontRightPower = forward - right - rotate;
-        double backRightPower = forward + right - rotate;
+//        double backRightPower = forward + right - rotate;
         double backLeftPower = forward - right + rotate;
 
         double maxPower = 1.0;
@@ -207,7 +222,7 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         // be and not get clipped
         maxPower = Math.max(maxPower, Math.abs(frontLeftPower));
         maxPower = Math.max(maxPower, Math.abs(frontRightPower));
-        maxPower = Math.max(maxPower, Math.abs(backRightPower));
+//        maxPower = Math.max(maxPower, Math.abs(backRightPower));
         maxPower = Math.max(maxPower, Math.abs(backLeftPower));
 
         // We multiply by maxSpeed so that it can be set lower for outreaches
@@ -216,6 +231,6 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         frontLeftDrive.setPower(maxSpeed * (frontLeftPower / maxPower));
         frontRightDrive.setPower(maxSpeed * (frontRightPower / maxPower));
         backLeftDrive.setPower(maxSpeed * (backLeftPower / maxPower));
-        backRightDrive.setPower(maxSpeed * (backRightPower / maxPower));
+//        backRightDrive.setPower(maxSpeed * (backRightPower / maxPower));
     }
 }
