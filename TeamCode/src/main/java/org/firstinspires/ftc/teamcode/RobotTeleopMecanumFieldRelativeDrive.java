@@ -67,36 +67,35 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
     DcMotorEx frontRightDrive;
     DcMotorEx backLeftDrive;
     DcMotorEx backRightDrive;
-    // private DcMotor rightMotor;
+//    DcMotorEx intakeMotor;
 
     private final ElapsedTime timer = new ElapsedTime();
     Servo launcherServo;
 
-  ColorSensor colorsensor;
+  NormalizedColorSensor colorsensor;
 //    // This declares the IMU needed to get the current direction the robot is facing
     IMU imu;
 
 // @Override
 
-//    public enum detectedColor{
-//        RED,
-//        BLUE,
-//        YELLOW,
-//        UNKNOWN
-//    }
+    public enum DetectedColor{
+        RED,
+        BLUE,
+        YELLOW,
+        UNKNOWN
+    }
     int count = 0;
     public void init() {
         frontLeftDrive = hardwareMap.get(DcMotorEx.class, "front_left_drive");
         frontRightDrive = hardwareMap.get(DcMotorEx.class, "front_right_drive");
         backLeftDrive = hardwareMap.get(DcMotorEx.class, "back_left_drive");
         backRightDrive = hardwareMap.get(DcMotorEx.class, "back_right_drive");
-        colorsensor = hardwareMap.get(ColorSensor.class, "color_sensor");
+        colorsensor = hardwareMap.get(NormalizedColorSensor.class, "color_sensor");
 
         launcherServo = hardwareMap.get(Servo.class, "launcher_servo");
         launcherServo.setDirection(Servo.Direction.FORWARD);
         launcherServo.setPosition(0);
-//        colorsensor = hardwareMap.get(NormalizedColorSensor.class, "color_sensor");
-//        rightMotor = hardwareMap.get(DcMotor.class, "right_drive");
+//        intakeMotor = hardwareMap.get(DcMotorEx.class,"intake_motor");
 
         // We set the left motors in reverse which is needed for drive trains where the left
         // motors are opposite to the right ones.
@@ -121,20 +120,19 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
                 RevHubOrientationOnRobot(logoDirection, usbDirection);
         imu.initialize(new IMU.Parameters(orientationOnRobot));
     }
-//        public detectedColor getDetectedColor(Telemetry telemetry){
-          //return 4 values
+    public DetectedColor getDetectedColor(Telemetry telemetry, NormalizedRGBA colors) {
+        if (colors.alpha == 0) return DetectedColor.UNKNOWN;
 
-//        float normRed,normGreen,normBlue;
-//        normRed=colors.red/colors.alpha;
-//        normGreen=colors.green/colors.alpha;
-//        normBlue=colors.blue/colors.alpha;
-//
-//        telemetry.addData("red",normRed);
-//        telemetry.addData("green",normGreen);
-//        telemetry.addData("blue",normBlue);
-//
-//        return detectedColor.UNKNOWN;
-//        }
+        float normRed = colors.red / colors.alpha;
+        float normGreen = colors.green / colors.alpha;
+        float normBlue = colors.blue / colors.alpha;
+
+        telemetry.addData("Normalized Red", normRed);
+        telemetry.addData("Normalized Green", normGreen);
+        telemetry.addData("Normalized Blue", normBlue);
+
+        return DetectedColor.UNKNOWN;
+    }
 
     @Override
     public void loop() {
@@ -147,12 +145,47 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
 //        telemetry.addLine("The blue value is" + colorsensor.blue());
 //        telemetry.addLine("The alpha value is" + colorsensor.alpha());
 
- //       NormalizedRGBA colors= colorsensor.getNormalizedColors();
-        telemetry.addLine("The blue value is" + Double.toString(colorsensor.blue()/colorsensor.alpha()));
-        telemetry.addLine("The green value is" + Double.toString(colorsensor.green()/colorsensor.alpha()));
-        telemetry.addLine("The red value is" + Double.toString(colorsensor.red()/colorsensor.alpha()));
+        NormalizedRGBA colors = colorsensor.getNormalizedColors();
+        float alpha = colors.alpha;
 
+        if (colors.alpha > 0) {
+            telemetry.addLine("The blue value is " + Double.toString(colors.blue / colors.alpha));
+            telemetry.addLine("The green value is " + Double.toString(colors.green / colors.alpha));
+            telemetry.addLine("The red value is " + Double.toString(colors.red / colors.alpha));
+        }
 
+        if (alpha > 0.02) { // makes sure an object is close enough to read
+            float normRed = colors.red / alpha;
+            float normGreen = colors.green / alpha;
+            float normBlue = colors.blue / alpha;
+
+            double currentPos = launcherServo.getPosition();
+
+            // check for yellow (High Red and Green, Low Blue) -> Default Position
+            if (normRed > 0.035 && normGreen > 0.035 && normBlue < 0.025) {
+                launcherServo.setPosition(0.0); // Set to your default position
+                telemetry.addData("Detected Color", "Yellow (Default Position 0.0)");
+            }
+            // check for Red or Blue dominant -> Go back by 0.2
+            else if ((normRed > normGreen && normRed > normBlue) || (normBlue > normRed && normBlue > normGreen)) {
+                double newPos = Math.max(0.0, currentPos - 0.1); // Prevents going below 0.0
+                launcherServo.setPosition(newPos);
+                telemetry.addData("Detected Color", "Red or Blue -> Moving back by 0.2");
+            }
+            // optional: Green dominant -> Go up by 0.2
+            else if (normGreen > normRed && normGreen > normBlue) {
+                double newPos = Math.min(1.0, currentPos + 0.1); // Prevents going above 1.0
+                launcherServo.setPosition(newPos);
+                telemetry.addData("Detected Color", "Green -> Moving up by 0.2");
+            }
+
+            // display normalized values for calibration
+            telemetry.addData("Norm Red", normRed);
+            telemetry.addData("Norm Green", normGreen);
+            telemetry.addData("Norm Blue", normBlue);
+        } else {
+            telemetry.addData("Status", "No object detected by sensor");
+        }
 //         If you press the A button, then you reset the Yaw to be zero from the way
 //         the robot is currently pointing
         if (gamepad1.a) {
@@ -166,17 +199,17 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
             driveFieldRelative(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         }
         telemetry.addLine(Integer.toString(count));
-       if (gamepad1.x) {
-           count++;
-          telemetry.addLine(Double.toString(launcherServo.getPosition()));
-           if ((launcherServo.getPosition() == 0) && timer.time() > 0.2) {
-               launcherServo.setPosition(.2);
-               timer.reset();
-            } else if (launcherServo.getPosition() == 0.2 && (timer.time() > 0.2)) {
-                launcherServo.setPosition(0);
-                timer.reset();
-            }
-        }
+//       if (gamepad1.x) {
+//           count++;
+//          telemetry.addLine(Double.toString(launcherServo.getPosition()));
+//           if ((launcherServo.getPosition() == 0) && timer.time() > 0.2) {
+//               launcherServo.setPosition(.2);
+//               timer.reset();
+//            } else if (launcherServo.getPosition() == 0.2 && (timer.time() > 0.2)) {
+//                launcherServo.setPosition(0);
+//                timer.reset();
+//            }
+//        }
 //        telemetry.addLine("This is the value of y: " + Float.toString(gamepad1.left_stick_y));
 //        telemetry.addLine("This is the value of x: " + Float.toString(gamepad1.left_stick_x));
 //        if ((-0.9 >= gamepad1.left_stick_y) && (gamepad1.left_stick_y >= -1)) {
@@ -212,11 +245,11 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
 //        telemetry.addData("Status", "Initialized! Ready to drive.");
 //        telemetry.update();
 
-//        if(gamepad1.y) {
-//            rightMotor.setPower(0.7);
+//         if(gamepad1.y) {
+//            intakeMotor.setPower(0.7);
 //        }
 //        if(gamepad1.right_bumper){
-//            rightMotor.setPower(0.0);
+//            intakeMotor.setPower(0.0);
 //        }
 
     }
@@ -249,7 +282,7 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         double backLeftPower = forward - right + rotate;
 
         double maxPower = 1.0;
-        double maxSpeed = 1.0;  // make this slower for outreaches
+        double maxSpeed = 0.25;  // make this slower for outreaches
 
         // This is needed to make sure we don't pass > 1.0 to any wheel
         // It allows us to keep all the motors in proportion to what they should
