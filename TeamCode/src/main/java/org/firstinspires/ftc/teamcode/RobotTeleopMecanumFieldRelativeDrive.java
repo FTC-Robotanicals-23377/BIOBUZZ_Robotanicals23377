@@ -28,6 +28,17 @@ package org.firstinspires.ftc.teamcode;/* Copyright (c) 2025 FIRST. All rights r
  */
 import static android.graphics.Color.red;
 
+import static org.firstinspires.ftc.teamcode.drive.DriveConstants.MAX_ANG_ACCEL;
+import static org.firstinspires.ftc.teamcode.drive.DriveConstants.MAX_ANG_VEL;
+import static org.firstinspires.ftc.teamcode.drive.DriveConstants.encoderTicksToInches;
+
+import androidx.annotation.NonNull;
+
+import com.acmerobotics.dashboard.canvas.Canvas;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.Action.*;
+import com.acmerobotics.roadrunner.*;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -38,6 +49,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoController;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -45,6 +57,14 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequence;
+import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequenceBuilder;
+
+import java.lang.Math;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /*
  * This OpMode illustrates how to program your robot to drive field relative.  This means
  * that the robot drives the direction you push the joystick regardless of the current orientation
@@ -75,6 +95,55 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
   NormalizedColorSensor colorsensor;
 //    // This declares the IMU needed to get the current direction the robot is facing
     IMU imu;
+
+    public PoseVelocity2d updatePoseEstimate() {
+        // asks localizer to update and return robots velocity
+        PoseVelocity2d vel = localizer.update();
+        // adds current pose to list then drops oldest entries so 100 remain
+        poseHistory.add(localizer.getPose());
+
+        while (poseHistory.size() > 100) {
+            poseHistory.removeFirst();
+        }
+        // logs pose and returns velocity
+        estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
+        return vel;
+    }
+
+    // canvas = drawing layer on top of field picture
+    // essentially just draws a line through the points from the method above
+    private void drawPoseHistory(Canvas c) {
+        double[] xPoints = new double[poseHistory.size()];
+        double[] yPoints = new double[poseHistory.size()];
+
+        int i = 0;
+        for (Pose2d t : poseHistory) {
+            xPoints[i] = t.position.x;
+            yPoints[i] = t.position.y;
+
+            i++;
+        }
+
+        c.setStrokeWidth(1);
+        c.setStroke("#3F51B5");
+        c.strokePolyline(xPoints, yPoints);
+    }
+
+    public TrajectoryActionBuilder actionBuilder(Pose2d beginPose) {
+        return new TrajectoryActionBuilder(
+                TurnAction::new,
+                FollowTrajectoryAction::new,
+                new TrajectoryBuilderParams(
+                        1e-6,
+                        new ProfileParams(
+                                0.25, 0.1, 1e-2
+                        )
+                ),
+                beginPose, 0.0,
+                defaultTurnConstraints,
+                defaultVelConstraint, defaultAccelConstraint
+        );
+    }
 
 // @Override
 
@@ -300,4 +369,255 @@ RobotTeleopMecanumFieldRelativeDrive extends OpMode {
         backLeftDrive.setPower(maxSpeed * (backLeftPower / maxPower));
         backRightDrive.setPower(maxSpeed * (backRightPower / maxPower));
     }
+    public TrajectoryBuilder trajectoryBuilder(Pose2d startPose) {
+        return new TrajectoryBuilder(startPose, VEL_CONSTRAINT, ACCEL_CONSTRAINT);
+    }
+
+    public TrajectoryBuilder trajectoryBuilder(Pose2d startPose, boolean reversed) {
+        return new TrajectoryBuilder(startPose, reversed, VEL_CONSTRAINT, ACCEL_CONSTRAINT);
+    }
+
+    public TrajectoryBuilder trajectoryBuilder(Pose2d startPose, double startHeading) {
+        return new TrajectoryBuilder(startPose, startHeading, VEL_CONSTRAINT, ACCEL_CONSTRAINT);
+    }
+
+    public TrajectorySequenceBuilder trajectorySequenceBuilder(Pose2d startPose) {
+        return new TrajectorySequenceBuilder(
+                startPose,
+                VEL_CONSTRAINT, ACCEL_CONSTRAINT,
+                MAX_ANG_VEL, MAX_ANG_ACCEL
+        );
+    }
+
+    public void turnAsync(double angle) {
+        trajectorySequenceRunner.followTrajectorySequenceAsync(
+                trajectorySequenceBuilder(getPoseEstimate())
+                        .turn(angle)
+                        .build()
+        );
+    }
+
+    public void turn(double angle) {
+        turnAsync(angle);
+        waitForIdle();
+    }
+
+    public void followTrajectoryAsync(Trajectory trajectory) {
+        trajectorySequenceRunner.followTrajectorySequenceAsync(
+                trajectorySequenceBuilder(trajectory.start())
+                        .addTrajectory(trajectory)
+                        .build()
+        );
+    }
+
+    public void followTrajectory(Trajectory trajectory) {
+        followTrajectoryAsync(trajectory);
+        waitForIdle();
+    }
+
+    public void followTrajectorySequenceAsync(TrajectorySequence trajectorySequence) {
+        trajectorySequenceRunner.followTrajectorySequenceAsync(trajectorySequence);
+    }
+
+    public void followTrajectorySequence(TrajectorySequence trajectorySequence) {
+        followTrajectorySequenceAsync(trajectorySequence);
+        waitForIdle();
+    }
+
+    public Pose2d getLastError() {
+        return trajectorySequenceRunner.getLastPoseError();
+    }
+
+    public void update() {
+        updatePoseEstimate();
+        DriveSignal signal = trajectorySequenceRunner.update(getPoseEstimate(), getPoseVelocity());
+        if (signal != null) setDriveSignal(signal);
+    }
+
+    public void waitForIdle() {
+        while (!Thread.currentThread().isInterrupted() && isBusy())
+            update();
+    }
+
+    public boolean isBusy() {
+        return trajectorySequenceRunner.isBusy();
+    }
+
+    public void setMode(DcMotor.RunMode runMode) {
+        for (DcMotorEx motor : motors) {
+            motor.setMode(runMode);
+        }
+    }
+
+    public void setZeroPowerBehavior(DcMotor.ZeroPowerBehavior zeroPowerBehavior) {
+        for (DcMotorEx motor : motors) {
+            motor.setZeroPowerBehavior(zeroPowerBehavior);
+        }
+    }
+
+    public void setPIDFCoefficients(DcMotor.RunMode runMode, PIDFCoefficients coefficients) {
+        PIDFCoefficients compensatedCoefficients = new PIDFCoefficients(
+                coefficients.p, coefficients.i, coefficients.d,
+                coefficients.f * 12 / batteryVoltageSensor.getVoltage()
+        );
+
+        for (DcMotorEx motor : motors) {
+            motor.setPIDFCoefficients(runMode, compensatedCoefficients);
+        }
+    }
+
+    public void setWeightedDrivePower(Pose2d drivePower) {
+        Pose2d vel = drivePower;
+
+        if (Math.abs(drivePower.getX()) + Math.abs(drivePower.getY())
+                + Math.abs(drivePower.getHeading()) > 1) {
+            // re-normalize the powers according to the weights
+            double denom = VX_WEIGHT * Math.abs(drivePower.getX())
+                    + VY_WEIGHT * Math.abs(drivePower.getY())
+                    + OMEGA_WEIGHT * Math.abs(drivePower.getHeading());
+
+            vel = new Pose2d(
+                    VX_WEIGHT * drivePower.getX(),
+                    VY_WEIGHT * drivePower.getY(),
+                    OMEGA_WEIGHT * drivePower.getHeading()
+            ).div(denom);
+        }
+
+        setDrivePower(vel);
+    }
+
+    @NonNull
+    @Override
+    public List<Double> getWheelPositions() {
+        lastEncPositions.clear();
+
+        List<Double> wheelPositions = new ArrayList<>();
+        for (DcMotorEx motor : motors) {
+            int position = motor.getCurrentPosition();
+            lastEncPositions.add(position);
+            wheelPositions.add(encoderTicksToInches(position));
+        }
+        return wheelPositions;
+    }
+
+    @Override
+    public List<Double> getWheelVelocities() {
+        lastEncVels.clear();
+
+        List<Double> wheelVelocities = new ArrayList<>();
+        for (DcMotorEx motor : motors) {
+            int vel = (int) motor.getVelocity();
+            lastEncVels.add(vel);
+            wheelVelocities.add(encoderTicksToInches(vel));
+        }
+        return wheelVelocities;
+    }
+
+    @Override
+    public void setMotorPowers(double v, double v1, double v2, double v3) {
+        leftFront.setPower(v);
+        leftRear.setPower(v1);
+        rightRear.setPower(v2);
+        rightFront.setPower(v3);
+    }
+
+    @Override
+    public double getRawExternalHeading() {
+        return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+    }
+
+    @Override
+    public Double getExternalHeadingVelocity() {
+        return (double) imu.getRobotAngularVelocity(AngleUnit.RADIANS).zRotationRate;
+    }
+
+    public static TrajectoryVelocityConstraint getVelocityConstraint(double maxVel, double maxAngularVel, double trackWidth) {
+        return new MinVelocityConstraint(Arrays.asList(
+                new AngularVelocityConstraint(maxAngularVel),
+                new MecanumVelocityConstraint(maxVel, trackWidth)
+        ));
+    }
+
+    public static TrajectoryAccelerationConstraint getAccelerationConstraint(double maxAccel) {
+        return new ProfileAccelerationConstraint(maxAccel);
+    }
 }
+//public final class TurnAction implements Action {
+//        private final TimeTurn turn;
+//
+//        private double beginTs = -1;
+//
+//        public TurnAction(TimeTurn turn) {
+//            this.turn = turn;
+//        }
+//
+//        @Override
+//        public boolean run(@NonNull TelemetryPacket p) {
+//            double t;
+//            if (beginTs < 0) {
+//                beginTs = Actions.now();
+//                t = 0;
+//            } else {
+//                t = Actions.now() - beginTs;
+//            }
+//
+//            if (t >= turn.duration) {
+//                frontLeftDrive.setPower(0);
+//                backLeftDrive.setPower(0);
+//                backRightDrive.setPower(0);
+//                frontRightDrive.setPower(0);
+//
+//                return false;
+//            }
+//
+//            Pose2dDual<Time> txWorldTarget = turn.get(t);
+//            targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
+//
+//            PoseVelocity2d robotVelRobot = updatePoseEstimate();
+//
+//            PoseVelocity2dDual<Time> command = new HolonomicController(
+//                    PARAMS.axialGain, PARAMS.lateralGain, PARAMS.headingGain,
+//                    PARAMS.axialVelGain, PARAMS.lateralVelGain, PARAMS.headingVelGain
+//            )
+//                    .compute(txWorldTarget, localizer.getPose(), robotVelRobot);
+//            driveCommandWriter.write(new DriveCommandMessage(command));
+//
+//            MecanumKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
+//            double voltage = voltageSensor.getVoltage();
+//            final MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
+//                    PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
+//            double leftFrontPower = feedforward.compute(wheelVels.leftFront) / voltage;
+//            double leftBackPower = feedforward.compute(wheelVels.leftBack) / voltage;
+//            double rightBackPower = feedforward.compute(wheelVels.rightBack) / voltage;
+//            double rightFrontPower = feedforward.compute(wheelVels.rightFront) / voltage;
+//            mecanumCommandWriter.write(new MecanumCommandMessage(
+//                    voltage, leftFrontPower, leftBackPower, rightBackPower, rightFrontPower
+//            ));
+//
+//            frontLeftDrive.setPower(feedforward.compute(wheelVels.leftFront) / voltage);
+//            backLeftDrive.setPower(feedforward.compute(wheelVels.leftBack) / voltage);
+//            backRightDrive.setPower(feedforward.compute(wheelVels.rightBack) / voltage);
+//            frontRightDrive.setPower(feedforward.compute(wheelVels.rightFront) / voltage);
+//
+//            Canvas c = p.fieldOverlay();
+//            drawPoseHistory(c);
+//
+//            c.setStroke("#4CAF50");
+//            Drawing.drawRobot(c, txWorldTarget.value());
+//
+//            c.setStroke("#3F51B5");
+//            Drawing.drawRobot(c, localizer.getPose());
+//
+//            c.setStroke("#7C4DFFFF");
+//            c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
+//
+//            return true;
+//        }
+//
+//        public void preview(Canvas c) {
+//            c.setStroke("#7C4DFF7A");
+//            c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
+//        }
+//    }
+
+//    }
